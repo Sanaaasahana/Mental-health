@@ -2832,3 +2832,14 @@ input, select, textarea {
   color: #222 !important;
   text-shadow: none !important;
 }
+/* Modal overlay and content text color fix for connect page profile view */
+.modal-content, .modal-content label, .modal-content p, .modal-content input, .modal-content textarea, .modal-content strong {
+  color: #222 !important;
+}
+
+.modal-content input,
+.modal-content textarea {
+  background: #fff !important;
+  color: #222 !important;
+  border: 1px solid #bbb;
+}
