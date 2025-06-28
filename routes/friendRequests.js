@@ -19,9 +19,12 @@ router.post('/', auth, async (req, res) => {
         if (check.rows.length > 0) {
             return res.status(400).json({ msg: 'Friend request already sent' });
         }
+        // Get sender's name
+        const userResult = await pool.query('SELECT name FROM users WHERE id = $1', [req.user.id]);
+        const fromUserName = userResult.rows[0]?.name || '';
         const result = await pool.query(
-            'INSERT INTO friend_requests (from_user_id, to_user_id) VALUES ($1, $2) RETURNING *',
-            [req.user.id, toUserId]
+            'INSERT INTO friend_requests (from_user_id, to_user_id, from_user_name) VALUES ($1, $2, $3) RETURNING *',
+            [req.user.id, toUserId, fromUserName]
         );
         res.status(201).json(result.rows[0]);
     } catch (err) {
