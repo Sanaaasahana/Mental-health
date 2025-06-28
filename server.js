@@ -1,6 +1,5 @@
 const express = require('express');
 const cors = require('cors');
-const mongoose = require('mongoose');
 require('dotenv').config();
 
 const app = express();
@@ -12,7 +11,7 @@ app.use(express.json());
 // Serve static files from the root directory
 app.use(express.static(__dirname));
 
-// Routes
+// API Routes
 app.use('/api/users', require('./routes/users'));
 app.use('/api/journal', require('./routes/journal'));
 app.use('/api/moods', require('./routes/moods'));
@@ -43,12 +42,6 @@ app.get('/connect', (req, res) => {
 app.get('/profile', (req, res) => {
     res.sendFile(__dirname + '/profile.html');
 });
-
-// Connect to MongoDB
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/mindful-wellness';
-mongoose.connect(MONGODB_URI)
-    .then(() => console.log('MongoDB Connected'))
-    .catch(err => console.log('MongoDB connection error:', err));
 
 const PORT = process.env.PORT || 3003;
 app.listen(PORT, () => {
