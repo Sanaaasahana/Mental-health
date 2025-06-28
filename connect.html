@@ -120,7 +120,7 @@
                     const currentUser = await currentUserResponse.json();
                     
                     // Filter out current user
-                    const otherUsers = allUsers.filter(user => user._id !== currentUser._id);
+                    const otherUsers = allUsers.filter(user => user.id !== currentUser.id);
                     const usersList = document.getElementById('users-list');
                     
                     if (otherUsers.length === 0) {
@@ -136,7 +136,7 @@
                     // Check friend request status for each user
                     const usersWithRequests = await Promise.all(otherUsers.map(async (user) => {
                         try {
-                            const requestResponse = await fetch(`${API_URL}/friend-requests/check/${user._id}`, {
+                            const requestResponse = await fetch(`${API_URL}/friend-requests/check/${user.id}`, {
                                 headers: { 'x-auth-token': token }
                             });
                             const requestData = await requestResponse.json();
@@ -147,7 +147,7 @@
                     }));
                     
                     usersList.innerHTML = usersWithRequests.map(user => {
-                        const joinDate = new Date(user.date || user.joinDate);
+                        const joinDate = new Date(user.join_date);
                         const daysSinceJoined = Math.floor((new Date() - joinDate) / (1000 * 60 * 60 * 24));
                         
                         let buttonHtml = '';
@@ -161,12 +161,12 @@
                                     <i class="fas fa-check"></i> Connected
                                 </button>`;
                             } else if (user.requestStatus.status === 'rejected') {
-                                buttonHtml = `<button onclick="sendFriendRequest('${user._id}', '${user.name}')" class="btn-connect">
+                                buttonHtml = `<button onclick="sendFriendRequest('${user.id}', '${user.name}')" class="btn-connect">
                                     <i class="fas fa-plus"></i> Connect
                                 </button>`;
                             }
                         } else {
-                            buttonHtml = `<button onclick="sendFriendRequest('${user._id}', '${user.name}')" class="btn-connect">
+                            buttonHtml = `<button onclick="sendFriendRequest('${user.id}', '${user.name}')" class="btn-connect">
                                 <i class="fas fa-plus"></i> Connect
                             </button>`;
                         }
@@ -188,7 +188,7 @@
                                 </div>
                                 <div class="user-actions">
                                     ${buttonHtml}
-                                    <button onclick="viewProfile('${user._id}')" class="btn-view">
+                                    <button onclick="viewProfile('${user.id}')" class="btn-view">
                                         <i class="fas fa-eye"></i> View
                                     </button>
                                 </div>
@@ -258,7 +258,7 @@
                                         <p><strong>Name:</strong> ${user.name}</p>
                                         <p><strong>Age:</strong> ${user.age || 'Not specified'}</p>
                                         <p><strong>Gender:</strong> ${user.gender || 'Not specified'}</p>
-                                        <p><strong>Joined:</strong> ${new Date(user.date || user.joinDate).toLocaleDateString('en-US', { 
+                                        <p><strong>Joined:</strong> ${new Date(user.join_date).toLocaleDateString('en-US', { 
                                             year: 'numeric', 
                                             month: 'long', 
                                             day: 'numeric' 
@@ -269,7 +269,7 @@
                                 </div>
                             </div>
                             <div class="modal-footer">
-                                <button onclick="sendFriendRequest('${user._id}', '${user.name}')" class="btn-primary">
+                                <button onclick="sendFriendRequest('${user.id}', '${user.name}')" class="btn-primary">
                                     <i class="fas fa-user-plus"></i> Send Friend Request
                                 </button>
                                 <button onclick="closeModal()" class="btn-secondary">
