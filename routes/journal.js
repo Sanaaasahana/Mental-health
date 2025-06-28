@@ -14,7 +14,7 @@ router.get('/', auth, async (req, res) => {
         res.json(result.rows);
     } catch (err) {
         console.error(err.message);
-        res.status(500).send('Server Error');
+        res.status(500).json({ msg: 'Server error' });
     }
 });
 
@@ -36,7 +36,7 @@ router.post('/', auth, async (req, res) => {
         res.status(201).json(result.rows[0]);
     } catch (err) {
         console.error(err.message);
-        res.status(500).send('Server Error');
+        res.status(500).json({ msg: 'Server error' });
     }
 });
 
@@ -48,7 +48,7 @@ router.get('/public', async (req, res) => {
         res.json(entries.rows);
     } catch (err) {
         console.error(err.message);
-        res.status(500).send('Server Error');
+        res.status(500).json({ msg: 'Server error' });
     }
 });
 
@@ -63,7 +63,28 @@ router.delete('/:id', auth, async (req, res) => {
         res.json({ msg: 'Entry deleted' });
     } catch (err) {
         console.error(err.message);
-        res.status(500).send('Server Error');
+        res.status(500).json({ msg: 'Server error' });
+    }
+});
+
+// @route   PUT api/journal/:id
+// @desc    Update a journal entry's public/private status
+router.put('/:id', auth, async (req, res) => {
+    const { isPublic } = req.body;
+    try {
+        const result = await pool.query(
+            'UPDATE journal_entries SET is_public = $1 WHERE id = $2 AND user_id = $3 RETURNING *',
+            [isPublic, req.params.id, req.user.id]
+        );
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({ msg: 'Entry not found' });
+        }
+        
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ msg: 'Server error' });
     }
 });
 
