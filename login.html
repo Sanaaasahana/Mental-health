@@ -86,7 +86,15 @@
                 const data = await response.json();
 
                 if (!response.ok) {
-                    throw new Error(data.msg || 'Something went wrong');
+                    const errorData = await response.json();
+                    if (errorData.msg === 'User not found') {
+                        showNotification('User not found. Would you like to <a href=\'signup.html\'>create an account</a>?', 'error');
+                    } else if (errorData.msg === 'Invalid password') {
+                        showNotification('Invalid password. Please try again.', 'error');
+                    } else {
+                        showNotification(errorData.msg || 'Invalid credentials', 'error');
+                    }
+                    return;
                 }
                 
                 localStorage.setItem('mindful_token', data.token);
