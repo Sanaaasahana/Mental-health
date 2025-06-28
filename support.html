@@ -127,12 +127,12 @@
                 }
                 
                 publicList.innerHTML = entries.map(entry => `
-                    <div class="journal-entry public-entry" data-category="${entry.category || ''}" data-content="${entry.content.toLowerCase()}">
+                    <div class="journal-entry">
                         <div class="entry-header">
                             <div class="entry-author">
                                 <div class="author-avatar"><i class="fas fa-user"></i></div>
                                 <div class="author-info">
-                                    <span class="author-name">${entry.userName || 'Anonymous'}</span>
+                                    <span class="author-name">${entry.user_name || 'Anonymous'}</span>
                                     <span class="entry-date"><i class="fas fa-calendar"></i> ${new Date(entry.timestamp).toLocaleDateString()}</span>
                                 </div>
                             </div>
@@ -142,7 +142,7 @@
                         </div>
                         <div class="entry-content">${entry.content}</div>
                         <div class="entry-actions">
-                            <button onclick="sendSupport('${entry.userName || 'Anonymous'}')" class="btn-support"><i class="fas fa-heart"></i> Send Support</button>
+                            <button onclick="sendSupport('${entry.user_name || 'Anonymous'}')" class="btn-support"><i class="fas fa-heart"></i> Send Support</button>
                             <button onclick="shareEntry()" class="btn-share"><i class="fas fa-share"></i> Share</button>
                         </div>
                     </div>
