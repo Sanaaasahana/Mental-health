@@ -26,7 +26,7 @@ router.post('/', auth, async (req, res) => {
         res.status(201).json(result.rows[0]);
     } catch (err) {
         console.error(err.message);
-        res.status(500).send('Server Error');
+        res.status(500).json({ msg: 'Server error' });
     }
 });
 
@@ -41,7 +41,7 @@ router.get('/', auth, async (req, res) => {
         res.json(result.rows);
     } catch (err) {
         console.error(err.message);
-        res.status(500).send('Server Error');
+        res.status(500).json({ msg: 'Server error' });
     }
 });
 
@@ -59,7 +59,7 @@ router.post('/:id/accept', auth, async (req, res) => {
         res.json(result.rows[0]);
     } catch (err) {
         console.error(err.message);
-        res.status(500).send('Server Error');
+        res.status(500).json({ msg: 'Server error' });
     }
 });
 
@@ -77,7 +77,7 @@ router.post('/:id/reject', auth, async (req, res) => {
         res.json(result.rows[0]);
     } catch (err) {
         console.error(err.message);
-        res.status(500).send('Server Error');
+        res.status(500).json({ msg: 'Server error' });
     }
 });
 
@@ -89,10 +89,46 @@ router.get('/check/:userId', auth, async (req, res) => {
             'SELECT * FROM friend_requests WHERE (from_user_id = $1 AND to_user_id = $2) OR (from_user_id = $2 AND to_user_id = $1)',
             [req.user.id, req.params.userId]
         );
-        res.json(result.rows[0] || { exists: false });
+        
+        if (result.rows.length === 0) {
+            res.json({ exists: false });
+        } else {
+            const request = result.rows[0];
+            res.json({
+                exists: true,
+                status: request.status || 'pending',
+                id: request.id
+            });
+        }
     } catch (err) {
         console.error(err.message);
-        res.status(500).send('Server Error');
+        res.status(500).json({ msg: 'Server error' });
+    }
+});
+
+// @route   GET api/friend-requests/count
+// @desc    Get friend request counts for the authenticated user
+router.get('/count', auth, async (req, res) => {
+    try {
+        // Count sent requests
+        const sentResult = await pool.query(
+            'SELECT COUNT(*) FROM friend_requests WHERE from_user_id = $1',
+            [req.user.id]
+        );
+        
+        // Count accepted requests
+        const acceptedResult = await pool.query(
+            'SELECT COUNT(*) FROM friend_requests WHERE (from_user_id = $1 OR to_user_id = $1) AND status = $2',
+            [req.user.id, 'accepted']
+        );
+        
+        res.json({
+            sent: parseInt(sentResult.rows[0].count, 10),
+            accepted: parseInt(acceptedResult.rows[0].count, 10)
+        });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ msg: 'Server error' });
     }
 });
 
