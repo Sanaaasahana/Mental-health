@@ -292,7 +292,8 @@
             .then(response => response.json())
             .then(entries => {
                 const userJournalCount = entries.length;
-                const hasPublicEntry = entries.some(entry => entry.isPublic);
+                // Map is_public to isPublic for frontend compatibility
+                const hasPublicEntry = entries.some(entry => entry.is_public || entry.isPublic);
                 
                 // Fetch mood entries
                 return fetch(`${API_URL}/moods`, {
