@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MindfulSpace - Support Group</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="main-body">
+    <div class="floating-leaves">
+        <div class="leaf leaf-1">🍃</div>
+        <div class="leaf leaf-2">🌿</div>
+        <div class="leaf leaf-3">🍃</div>
+        <div class="leaf leaf-4">🌿</div>
+        <div class="leaf leaf-5">🍃</div>
+        <div class="leaf leaf-6">🌱</div>
+    </div>
+
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <i class="fas fa-leaf"></i>
+                <h2>MindfulSpace</h2>
+            </div>
+        </div>
+        <ul class="sidebar-menu">
+            <li><a href="home.html" class="menu-item">
+                <i class="fas fa-home"></i> Home
+            </a></li>
+            <li><a href="journal.html" class="menu-item">
+                <i class="fas fa-book"></i> Journal
+            </a></li>
+            <li><a href="support.html" class="menu-item active">
+                <i class="fas fa-users"></i> Support Group
+            </a></li>
+            <li><a href="connect.html" class="menu-item">
+                <i class="fas fa-user-friends"></i> Connect
+            </a></li>
+            <li><a href="profile.html" class="menu-item">
+                <i class="fas fa-user"></i> Profile
+            </a></li>
+            <li><a href="#" onclick="logout()" class="menu-item logout">
+                <i class="fas fa-sign-out-alt"></i> Logout
+            </a></li>
+        </ul>
+    </nav>
+
+    <main class="main-content">
+        <div class="page-header">
+            <h1><i class="fas fa-hands-helping"></i> Support Group</h1>
+            <p>Connect with others and find strength in shared experiences</p>
+        </div>
+
+        <div class="support-container">
+            <div class="search-section card">
+                <h3><i class="fas fa-search"></i> Find Support</h3>
+                <div class="search-controls">
+                    <div class="search-bar">
+                        <input type="text" id="support-search" placeholder="Search by category or keywords (e.g., mindfulness, stress, gratitude)">
+                        <button onclick="searchSupport()" class="btn-primary">
+                            <i class="fas fa-search"></i> Search
+                        </button>
+                    </div>
+                    <div class="filter-options">
+                        <select id="category-filter" onchange="filterByCategory()">
+                            <option value="">All Categories</option>
+                            <option value="mindfulness">Mindfulness</option>
+                            <option value="stress">Stress</option>
+                            <option value="personal-growth">Personal Growth</option>
+                            <option value="gratitude">Gratitude</option>
+                            <option value="other">Other</option>
+                        </select>
+                        <button onclick="clearFilters()" class="btn-secondary">
+                            <i class="fas fa-times"></i> Clear
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="public-entries card">
+                <h3><i class="fas fa-heart"></i> Community Shares</h3>
+                <div class="entries-stats">
+                    <span id="entries-count">0 shared experiences</span>
+                    <span id="community-count" style="margin-left: 20px; color: #888; font-size: 0.95em;"></span>
+                </div>
+                <div id="public-entries-list" class="entries-list"></div>
+            </div>
+        </div>
+    </main>
+
+    <script src="script.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            checkAuth();
+
+            let allPublicEntries = []; // Cache for all fetched public entries
+            const publicList = document.getElementById('public-entries-list');
+            const token = localStorage.getItem('mindful_token');
+            
+            // -- FETCH AND DISPLAY PUBLIC ENTRIES --
+            async function loadPublicEntries() {
+                try {
+                    const response = await fetch(`${API_URL}/journal/public`);
+                    if (!response.ok) throw new Error('Failed to load public entries.');
+                    allPublicEntries = await response.json();
+                    displayEntries(allPublicEntries);
+                } catch (error) {
+                    showNotification(error.message, 'error');
+                }
+            }
+
+            function displayEntries(entries) {
+                const entriesCount = document.getElementById('entries-count');
+                const count = entries.length;
+                entriesCount.textContent = `${count} shared experience${count !== 1 ? 's' : ''}`;
+
+                if (entries.length === 0) {
+                    publicList.innerHTML = `
+                        <div class="no-entries">
+                            <i class="fas fa-heart"></i>
+                            <p>No public entries yet. Be the first to share your experience!</p>
+                            <a href="journal.html" class="btn-primary"><i class="fas fa-pen"></i> Write in Journal</a>
+                        </div>`;
+                    return;
+                }
+                
+                publicList.innerHTML = entries.map(entry => `
+                    <div class="journal-entry public-entry" data-category="${entry.category || ''}" data-content="${entry.content.toLowerCase()}">
+                        <div class="entry-header">
+                            <div class="entry-author">
+                                <div class="author-avatar"><i class="fas fa-user"></i></div>
+                                <div class="author-info">
+                                    <span class="author-name">${entry.userName || 'Anonymous'}</span>
+                                    <span class="entry-date"><i class="fas fa-calendar"></i> ${new Date(entry.timestamp).toLocaleDateString()}</span>
+                                </div>
+                            </div>
+                            <div class="entry-tags">
+                                ${entry.category ? `<span class="entry-category">${entry.category}</span>` : ''}
+                            </div>
+                        </div>
+                        <div class="entry-content">${entry.content}</div>
+                        <div class="entry-actions">
+                            <button onclick="sendSupport('${entry.userName || 'Anonymous'}')" class="btn-support"><i class="fas fa-heart"></i> Send Support</button>
+                            <button onclick="shareEntry()" class="btn-share"><i class="fas fa-share"></i> Share</button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            // -- SEARCH AND FILTER --
+            window.searchSupport = function() {
+                const searchTerm = document.getElementById('support-search').value.toLowerCase().trim();
+                const filteredEntries = allPublicEntries.filter(entry => {
+                    const content = entry.content.toLowerCase();
+                    const category = (entry.category || '').toLowerCase();
+                    return content.includes(searchTerm) || category.includes(searchTerm);
+                });
+                displayEntries(filteredEntries);
+            }
+
+            window.filterByCategory = function() {
+                const selectedCategory = document.getElementById('category-filter').value;
+                if (!selectedCategory) {
+                    displayEntries(allPublicEntries);
+                    return;
+                }
+                const filteredEntries = allPublicEntries.filter(entry => entry.category === selectedCategory);
+                displayEntries(filteredEntries);
+            }
+
+            window.clearFilters = function() {
+                document.getElementById('support-search').value = '';
+                document.getElementById('category-filter').value = '';
+                displayEntries(allPublicEntries);
+            }
+
+            // -- ACTIONS --
+            window.sendSupport = function(userName) {
+                showNotification(`Support sent to ${userName}! 💚`, 'success');
+            }
+
+            window.shareEntry = function() {
+                showNotification('Share functionality not implemented yet.', 'info');
+            }
+
+            async function loadCommunityCount() {
+                try {
+                    const response = await fetch(`${API_URL}/users/count`);
+                    if (!response.ok) throw new Error('Failed to fetch user count.');
+                    const data = await response.json();
+                    document.getElementById('community-count').textContent = `${data.count} community members`;
+                } catch (e) {
+                    document.getElementById('community-count').textContent = '';
+                }
+            }
+
+            // Initial Load
+            await loadPublicEntries();
+            await loadCommunityCount();
+        });
+    </script>
+</body>
+</html>

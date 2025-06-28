@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MindfulSpace - Connect</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="main-body">
+    <div class="floating-leaves">
+        <div class="leaf leaf-1">🍃</div>
+        <div class="leaf leaf-2">🌿</div>
+        <div class="leaf leaf-3">🍃</div>
+        <div class="leaf leaf-4">🌿</div>
+        <div class="leaf leaf-5">🍃</div>
+        <div class="leaf leaf-6">🌱</div>
+    </div>
+
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <i class="fas fa-leaf"></i>
+                <h2>MindfulSpace</h2>
+            </div>
+        </div>
+        <ul class="sidebar-menu">
+            <li><a href="home.html" class="menu-item">
+                <i class="fas fa-home"></i> Home
+            </a></li>
+            <li><a href="journal.html" class="menu-item">
+                <i class="fas fa-book"></i> Journal
+            </a></li>
+            <li><a href="support.html" class="menu-item">
+                <i class="fas fa-users"></i> Support Group
+            </a></li>
+            <li><a href="connect.html" class="menu-item active">
+                <i class="fas fa-user-friends"></i> Connect
+            </a></li>
+            <li><a href="profile.html" class="menu-item">
+                <i class="fas fa-user"></i> Profile
+            </a></li>
+            <li><a href="#" onclick="logout()" class="menu-item logout">
+                <i class="fas fa-sign-out-alt"></i> Logout
+            </a></li>
+        </ul>
+    </nav>
+
+    <main class="main-content">
+        <div class="page-header">
+            <h1><i class="fas fa-seedling"></i> Connect & Grow</h1>
+            <p>Find and connect with other community members on their wellness journey</p>
+        </div>
+
+        <div class="connect-container">
+            <div class="connect-stats card">
+                <div class="stats-grid">
+                    <div class="stat">
+                        <i class="fas fa-users"></i>
+                        <span class="stat-number" id="total-users">0</span>
+                        <span class="stat-label">Community Members</span>
+                    </div>
+                    <div class="stat">
+                        <i class="fas fa-handshake"></i>
+                        <span class="stat-number" id="friend-requests">0</span>
+                        <span class="stat-label">Friend Requests Sent</span>
+                    </div>
+                    <div class="stat">
+                        <i class="fas fa-heart"></i>
+                        <span class="stat-number" id="connections">0</span>
+                        <span class="stat-label">Connections Made</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="users-section card">
+                <div class="section-header">
+                    <h3><i class="fas fa-compass"></i> Discover Community Members</h3>
+                    <div class="search-users">
+                        <input type="text" id="user-search" placeholder="Search by name..." onkeyup="searchUsers()">
+                        <select id="gender-filter" onchange="filterUsers()">
+                            <option value="">All Genders</option>
+                            <option value="male">Male</option>
+                            <option value="female">Female</option>
+                            <option value="non-binary">Non-binary</option>
+                            <option value="prefer-not-to-say">Prefer not to say</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="users-grid" id="users-list"></div>
+            </div>
+        </div>
+    </main>
+
+    <script src="script.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Check authentication
+            checkAuth();
+            
+            const token = localStorage.getItem('mindful_token');
+            
+            // Load users and stats
+            await loadUsers();
+            await updateStats();
+
+            async function loadUsers() {
+                try {
+                    const response = await fetch(`${API_URL}/users/all`, {
+                        headers: { 'x-auth-token': token }
+                    });
+                    if (!response.ok) throw new Error('Failed to load users.');
+                    const allUsers = await response.json();
+                    
+                    // Get current user to filter them out
+                    const currentUserResponse = await fetch(`${API_URL}/users/me`, {
+                        headers: { 'x-auth-token': token }
+                    });
+                    const currentUser = await currentUserResponse.json();
+                    
+                    // Filter out current user
+                    const otherUsers = allUsers.filter(user => user._id !== currentUser._id);
+                    const usersList = document.getElementById('users-list');
+                    
+                    if (otherUsers.length === 0) {
+                        usersList.innerHTML = `
+                            <div class="no-users">
+                                <i class="fas fa-seedling"></i>
+                                <p>No other community members yet. Invite friends to join MindfulSpace!</p>
+                            </div>
+                        `;
+                        return;
+                    }
+                    
+                    // Check friend request status for each user
+                    const usersWithRequests = await Promise.all(otherUsers.map(async (user) => {
+                        try {
+                            const requestResponse = await fetch(`${API_URL}/friend-requests/check/${user._id}`, {
+                                headers: { 'x-auth-token': token }
+                            });
+                            const requestData = await requestResponse.json();
+                            return { ...user, requestStatus: requestData };
+                        } catch (error) {
+                            return { ...user, requestStatus: { exists: false } };
+                        }
+                    }));
+                    
+                    usersList.innerHTML = usersWithRequests.map(user => {
+                        const joinDate = new Date(user.date || user.joinDate);
+                        const daysSinceJoined = Math.floor((new Date() - joinDate) / (1000 * 60 * 60 * 24));
+                        
+                        let buttonHtml = '';
+                        if (user.requestStatus.exists) {
+                            if (user.requestStatus.status === 'pending') {
+                                buttonHtml = `<button class="btn-requested" disabled>
+                                    <i class="fas fa-clock"></i> Request Sent
+                                </button>`;
+                            } else if (user.requestStatus.status === 'accepted') {
+                                buttonHtml = `<button class="btn-connected" disabled>
+                                    <i class="fas fa-check"></i> Connected
+                                </button>`;
+                            } else if (user.requestStatus.status === 'rejected') {
+                                buttonHtml = `<button onclick="sendFriendRequest('${user._id}', '${user.name}')" class="btn-connect">
+                                    <i class="fas fa-plus"></i> Connect
+                                </button>`;
+                            }
+                        } else {
+                            buttonHtml = `<button onclick="sendFriendRequest('${user._id}', '${user.name}')" class="btn-connect">
+                                <i class="fas fa-plus"></i> Connect
+                            </button>`;
+                        }
+                        
+                        return `
+                            <div class="user-card" data-name="${user.name.toLowerCase()}" data-gender="${user.gender || ''}">
+                                <div class="user-avatar">
+                                    <i class="fas fa-user"></i>
+                                    <div class="user-status ${getRandomStatus()}"></div>
+                                </div>
+                                <div class="user-info">
+                                    <h4>${user.name}</h4>
+                                    <div class="user-details">
+                                        <p><i class="fas fa-birthday-cake"></i> ${user.age ? `${user.age} years old` : 'Age not specified'}</p>
+                                        <p><i class="fas fa-venus-mars"></i> ${user.gender || 'Not specified'}</p>
+                                        <p><i class="fas fa-calendar-plus"></i> Joined ${daysSinceJoined === 0 ? 'today' : `${daysSinceJoined} days ago`}</p>
+                                    </div>
+                                    ${user.bio ? `<p class="user-bio">"${user.bio}"</p>` : ''}
+                                </div>
+                                <div class="user-actions">
+                                    ${buttonHtml}
+                                    <button onclick="viewProfile('${user._id}')" class="btn-view">
+                                        <i class="fas fa-eye"></i> View
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                } catch (error) {
+                    showNotification(error.message, 'error');
+                }
+            }
+
+            function getRandomStatus() {
+                const statuses = ['online', 'away', 'offline'];
+                return statuses[Math.floor(Math.random() * statuses.length)];
+            }
+
+            window.sendFriendRequest = async function(userId, userName) {
+                try {
+                    const response = await fetch(`${API_URL}/friend-requests`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'x-auth-token': token
+                        },
+                        body: JSON.stringify({ toUserId: userId })
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.msg || 'Failed to send friend request');
+                    }
+
+                    showNotification(`Friend request sent to ${userName}! 🤝`, 'success');
+                    
+                    // Refresh the users list and stats
+                    await loadUsers();
+                    await updateStats();
+                } catch (error) {
+                    showNotification(error.message, 'error');
+                }
+            }
+
+            window.viewProfile = async function(userId) {
+                try {
+                    const response = await fetch(`${API_URL}/users/${userId}`, {
+                        headers: { 'x-auth-token': token }
+                    });
+                    if (!response.ok) throw new Error('Failed to fetch user profile.');
+                    const user = await response.json();
+                    
+                    const modal = document.createElement('div');
+                    modal.className = 'modal-overlay';
+                    modal.innerHTML = `
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h3><i class="fas fa-user"></i> ${user.name}'s Profile</h3>
+                                <button onclick="closeModal()" class="modal-close">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="profile-view">
+                                    <div class="profile-avatar">
+                                        <i class="fas fa-user"></i>
+                                    </div>
+                                    <div class="profile-details">
+                                        <p><strong>Name:</strong> ${user.name}</p>
+                                        <p><strong>Age:</strong> ${user.age || 'Not specified'}</p>
+                                        <p><strong>Gender:</strong> ${user.gender || 'Not specified'}</p>
+                                        <p><strong>Joined:</strong> ${new Date(user.date || user.joinDate).toLocaleDateString('en-US', { 
+                                            year: 'numeric', 
+                                            month: 'long', 
+                                            day: 'numeric' 
+                                        })}</p>
+                                        <p><strong>Email:</strong> ${user.email}</p>
+                                        ${user.bio ? `<p><strong>Bio:</strong> "${user.bio}"</p>` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button onclick="sendFriendRequest('${user._id}', '${user.name}')" class="btn-primary">
+                                    <i class="fas fa-user-plus"></i> Send Friend Request
+                                </button>
+                                <button onclick="closeModal()" class="btn-secondary">
+                                    Close
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    document.body.appendChild(modal);
+                } catch (error) {
+                    showNotification(error.message, 'error');
+                }
+            }
+
+            window.closeModal = function() {
+                const modal = document.querySelector('.modal-overlay');
+                if (modal) {
+                    modal.remove();
+                }
+            }
+
+            window.searchUsers = function() {
+                const searchTerm = document.getElementById('user-search').value.toLowerCase();
+                const userCards = document.querySelectorAll('.user-card');
+                
+                userCards.forEach(card => {
+                    const userName = card.getAttribute('data-name');
+                    if (userName.includes(searchTerm)) {
+                        card.style.display = 'block';
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
+            }
+
+            window.filterUsers = function() {
+                const selectedGender = document.getElementById('gender-filter').value;
+                const userCards = document.querySelectorAll('.user-card');
+                
+                userCards.forEach(card => {
+                    const userGender = card.getAttribute('data-gender');
+                    if (!selectedGender || userGender === selectedGender) {
+                        card.style.display = 'block';
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
+            }
+
+            async function updateStats() {
+                try {
+                    // Get total users count
+                    const countResponse = await fetch(`${API_URL}/users/count`);
+                    if (countResponse.ok) {
+                        const countData = await countResponse.json();
+                        document.getElementById('total-users').textContent = countData.count - 1; // Exclude current user
+                    }
+                    
+                    // Get friend request counts
+                    const requestCountResponse = await fetch(`${API_URL}/friend-requests/count`, {
+                        headers: { 'x-auth-token': token }
+                    });
+                    if (requestCountResponse.ok) {
+                        const requestData = await requestCountResponse.json();
+                        document.getElementById('friend-requests').textContent = requestData.sent;
+                        document.getElementById('connections').textContent = requestData.accepted;
+                    } else {
+                        document.getElementById('friend-requests').textContent = '0';
+                        document.getElementById('connections').textContent = '0';
+                    }
+                } catch (error) {
+                    console.error('Error updating stats:', error);
+                    document.getElementById('total-users').textContent = '0';
+                    document.getElementById('friend-requests').textContent = '0';
+                    document.getElementById('connections').textContent = '0';
+                }
+            }
+
+            // Close modal when clicking outside
+            document.addEventListener('click', function(e) {
+                if (e.target.classList.contains('modal-overlay')) {
+                    closeModal();
+                }
+            });
+        });
+    </script>
+</body>
+</html>

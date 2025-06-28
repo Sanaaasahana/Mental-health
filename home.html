@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MindfulSpace - Home</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+</head>
+<body class="main-body">
+  <div class="floating-leaves">
+    <div class="leaf leaf-1">🍃</div>
+    <div class="leaf leaf-2">🌿</div>
+    <div class="leaf leaf-3">🍃</div>
+    <div class="leaf leaf-4">🌿</div>
+    <div class="leaf leaf-5">🍃</div>
+    <div class="leaf leaf-6">🌱</div>
+  </div>
+
+  <nav class="sidebar">
+    <div class="sidebar-header">
+      <div class="logo">
+        <i class="fas fa-leaf"></i>
+        <h2>MindfulSpace</h2>
+      </div>
+    </div>
+    <ul class="sidebar-menu">
+      <li><a href="home.html" class="menu-item active"><i class="fas fa-home"></i> Home</a></li>
+      <li><a href="journal.html" class="menu-item"><i class="fas fa-book"></i> Journal</a></li>
+      <li><a href="support.html" class="menu-item"><i class="fas fa-users"></i> Support Group</a></li>
+      <li><a href="connect.html" class="menu-item"><i class="fas fa-user-friends"></i> Connect</a></li>
+      <li><a href="profile.html" class="menu-item"><i class="fas fa-user"></i> Profile</a></li>
+      <li><a href="#" onclick="logout()" class="menu-item logout"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+    </ul>
+  </nav>
+
+  <main class="main-content">
+    <div class="page-header">
+      <h1>Welcome back, <span id="user-name-display"></span>! 🌸</h1>
+      <p>How are you feeling in this beautiful moment?</p>
+    </div>
+
+    <div class="home-grid">
+      <!-- Mood Tracker -->
+      <div class="card mood-tracker">
+        <h3><i class="fas fa-heart"></i> Today's Mood</h3>
+        <div class="mood-options">
+          <button class="mood-btn" onclick="setMood('happy', '😊')" data-mood="happy">😊 Happy</button>
+          <button class="mood-btn" onclick="setMood('sad', '😢')" data-mood="sad">😢 Sad</button>
+          <button class="mood-btn" onclick="setMood('anxious', '😰')" data-mood="anxious">😰 Anxious</button>
+          <button class="mood-btn" onclick="setMood('tired', '😴')" data-mood="tired">😴 Tired</button>
+          <button class="mood-btn" onclick="setMood('calm', '😌')" data-mood="calm">😌 Calm</button>
+          <button class="mood-btn" onclick="setMood('angry', '😤')" data-mood="angry">😤 Angry</button>
+        </div>
+        <div id="mood-feedback" class="mood-feedback"></div>
+      </div>
+
+      <!-- Gratitude -->
+      <div class="card gratitude">
+        <h3><i class="fas fa-heart"></i> Gratitude Garden</h3>
+        <p class="gratitude-subtitle">What are you grateful for today?</p>
+        <textarea id="gratitude-input" placeholder="I'm grateful for..."></textarea>
+        <button onclick="saveGratitude()" class="btn-primary"><i class="fas fa-seedling"></i> Plant Gratitude</button>
+        <div id="gratitude-list" class="gratitude-list"></div>
+      </div>
+
+      <!-- Mood Calendar -->
+      <div class="card mood-calendar">
+        <h3><i class="fas fa-calendar-alt"></i> Mood Calendar</h3>
+        <div id="calendar" class="calendar"></div>
+      </div>
+    </div>
+  </main>
+
+  <script src="script.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // First, ensure the user is authenticated.
+      checkAuth();
+      
+      let currentUser = null;
+      let currentMoods = {}; // Cache for the current month's moods
+      let calendarYear, calendarMonth; // Track the viewed month/year
+
+      // -- INITIALIZATION --
+      async function initializePage() {
+        currentUser = await getCurrentUser();
+        if (currentUser) {
+          document.getElementById('user-name-display').textContent = currentUser.name;
+          const today = new Date();
+          calendarYear = today.getFullYear();
+          calendarMonth = today.getMonth(); // 0-indexed
+          await generateCalendar();
+          await loadGratitudeNotes();
+        } else {
+          // If we can't get a user, authentication has likely failed.
+          logout();
+        }
+      }
+
+      // -- MOODS --
+      async function setMood(mood, emoji) {
+        showNotification(`Saving your mood...`);
+        try {
+          const token = localStorage.getItem('mindful_token');
+          const response = await fetch(`${API_URL}/moods`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-auth-token': token },
+            body: JSON.stringify({ mood })
+          });
+          
+          if (!response.ok) throw new Error('Failed to save mood.');
+
+          document.getElementById('mood-feedback').innerHTML = `
+            <div class="mood-response">
+              <p>You're feeling ${emoji} today (${mood})</p>
+              <p class="mood-tip">${getMoodTip(mood)}</p>
+            </div>
+          `;
+
+          document.querySelectorAll('.mood-btn').forEach(btn => btn.classList.remove('selected'));
+          document.querySelector(`[data-mood="${mood}"]`)?.classList.add('selected');
+
+          // Refresh calendar to show the new mood
+          await generateCalendar();
+
+        } catch (error) {
+          showNotification(error.message, 'error');
+        }
+      }
+
+      function getMoodTip(mood) {
+        const tips = {
+          happy: "That's wonderful! 🌟 Share your joy or reflect on it.",
+          sad: "It's okay to feel sad. 🤗 Talk to someone or rest.",
+          anxious: "Take deep breaths. 🌬️ Try grounding exercises.",
+          tired: "Rest is important. 😴 Give yourself a break.",
+          calm: "Beautiful! 🧘‍♀️ Enjoy your peace and plan ahead.",
+          angry: "It's normal to feel angry. 🔥 Try journaling or movement."
+        };
+        return tips[mood] || "Take care of yourself. 💚";
+      }
+
+      // Make the setMood function globally accessible for the onclick attributes
+      window.setMood = setMood;
+
+      // -- CALENDAR --
+      async function fetchMoodsForMonth(year, month) {
+        try {
+          const token = localStorage.getItem('mindful_token');
+          const response = await fetch(`${API_URL}/moods?year=${year}&month=${month}`, {
+            headers: { 'x-auth-token': token }
+          });
+          if (!response.ok) throw new Error('Could not fetch moods.');
+          const moods = await response.json();
+          // Remap to a more accessible object: { 'YYYY-MM-DD': 'happy' }
+          currentMoods = {};
+          for (const moodEntry of moods) {
+            // Use local time for date string
+            const dateObj = new Date(moodEntry.date);
+            const localDate = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate());
+            const dateKey = localDate.toISOString().slice(0, 10);
+            currentMoods[dateKey] = moodEntry.mood;
+          }
+        } catch(error) {
+          showNotification(error.message, 'error');
+          currentMoods = {};
+        }
+      }
+
+      async function generateCalendar() {
+        const calendarEl = document.getElementById('calendar');
+        const today = new Date();
+        const year = calendarYear;
+        const month = calendarMonth; // 0-indexed
+
+        await fetchMoodsForMonth(year, month + 1); // API expects 1-indexed month
+
+        const firstDay = new Date(year, month, 1);
+        const lastDay = new Date(year, month + 1, 0);
+        const daysInMonth = lastDay.getDate();
+        const startingDay = firstDay.getDay(); // 0=Sun, 1=Mon...
+
+        const moodEmojis = { 
+          happy: '😊', 
+          sad: '😢', 
+          anxious: '😰', 
+          tired: '😴', 
+          calm: '😌', 
+          angry: '😤',
+          'very-happy': '😄',
+          'very-sad': '😭',
+          stressed: '😰',
+          excited: '🤩',
+          neutral: '😐'
+        };
+
+        // Month navigation
+        let html = `
+          <div class="calendar-header">
+            <button id="prev-month" style="margin-right:10px">&#8592;</button>
+            <h4 style="display:inline">${new Date(year, month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</h4>
+            <button id="next-month" style="margin-left:10px">&#8594;</button>
+          </div>
+          <div class="calendar-grid">
+            <div class="day-header">Sun</div><div class="day-header">Mon</div><div class="day-header">Tue</div>
+            <div class="day-header">Wed</div><div class="day-header">Thu</div><div class="day-header">Fri</div><div class="day-header">Sat</div>
+        `;
+
+        for (let i = 0; i < startingDay; i++) {
+          html += '<div class="calendar-day empty"></div>';
+        }
+
+        for (let day = 1; day <= daysInMonth; day++) {
+          const date = new Date(year, month, day);
+          // Use local date string
+          const dateString = new Date(date.getFullYear(), date.getMonth(), date.getDate()).toISOString().slice(0, 10);
+          const mood = currentMoods[dateString];
+          const isToday = (date.getFullYear() === today.getFullYear() && date.getMonth() === today.getMonth() && date.getDate() === today.getDate());
+
+          let dayClass = 'calendar-day';
+          if (isToday && year === today.getFullYear() && month === today.getMonth()) dayClass += ' today';
+          
+          let moodEmoji = '';
+          if(mood) {
+            moodEmoji = `<span class="day-mood">${moodEmojis[mood] || '❓'}</span>`;
+            if (isToday && year === today.getFullYear() && month === today.getMonth()) {
+              document.querySelector(`.mood-btn[data-mood="${mood}"]`)?.classList.add('selected');
+              document.getElementById('mood-feedback').innerHTML = `
+                <div class="mood-response"><p>You felt ${mood} today ${moodEmojis[mood] || '❓'}</p></div>`;
+            }
+          }
+          
+          html += `
+            <div class="${dayClass}" title="${mood ? `You felt ${mood}` : 'No mood recorded'}">
+              <span class="day-number">${day}</span>
+              ${moodEmoji}
+            </div>`;
+        }
+        
+        html += '</div>';
+        calendarEl.innerHTML = html;
+
+        // Add event listeners for month navigation
+        document.getElementById('prev-month').onclick = async function() {
+          calendarMonth--;
+          if (calendarMonth < 0) {
+            calendarMonth = 11;
+            calendarYear--;
+          }
+          await generateCalendar();
+        };
+        document.getElementById('next-month').onclick = async function() {
+          calendarMonth++;
+          if (calendarMonth > 11) {
+            calendarMonth = 0;
+            calendarYear++;
+          }
+          await generateCalendar();
+        };
+      }
+      
+      // Start the page
+      initializePage();
+    });
+
+    // -- GRATITUDE FUNCTIONALITY --
+    async function saveGratitude() {
+      const gratitudeInput = document.getElementById('gratitude-input');
+      const note = gratitudeInput.value.trim();
+      
+      if (!note) {
+        showNotification('Please write something you are grateful for.', 'error');
+        return;
+      }
+
+      try {
+        const token = localStorage.getItem('mindful_token');
+        const response = await fetch(`${API_URL}/gratitude`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-auth-token': token
+          },
+          body: JSON.stringify({ note })
+        });
+
+        if (!response.ok) throw new Error('Failed to save gratitude note.');
+
+        gratitudeInput.value = '';
+        showNotification('Gratitude note saved! 🌱', 'success');
+        await loadGratitudeNotes();
+
+      } catch (error) {
+        showNotification(error.message, 'error');
+      }
+    }
+
+    async function loadGratitudeNotes() {
+      try {
+        const token = localStorage.getItem('mindful_token');
+        const response = await fetch(`${API_URL}/gratitude`, {
+          headers: { 'x-auth-token': token }
+        });
+
+        if (!response.ok) throw new Error('Failed to load gratitude notes.');
+
+        const notes = await response.json();
+        const gratitudeList = document.getElementById('gratitude-list');
+
+        if (notes.length === 0) {
+          gratitudeList.innerHTML = `
+            <div class="no-entries">
+              <p>No gratitude notes yet. Start by writing what you're grateful for!</p>
+            </div>
+          `;
+          return;
+        }
+
+        gratitudeList.innerHTML = notes
+          .slice(-5) // Show only the last 5 notes
+          .reverse() // Show newest first
+          .map(note => `
+            <div class="gratitude-item">
+              <div class="gratitude-icon">
+                <i class="fas fa-heart"></i>
+              </div>
+              <div class="gratitude-content">
+                <p>${note.note}</p>
+                <small>${new Date(note.timestamp).toLocaleDateString()}</small>
+              </div>
+              <button onclick="deleteGratitude('${note._id}')" class="btn-delete" style="background: none; border: none; color: #dc3545; cursor: pointer; padding: 5px;">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          `).join('');
+
+      } catch (error) {
+        showNotification(error.message, 'error');
+      }
+    }
+
+    async function deleteGratitude(noteId) {
+      if (!confirm('Are you sure you want to delete this gratitude note?')) {
+        return;
+      }
+
+      try {
+        const token = localStorage.getItem('mindful_token');
+        const response = await fetch(`${API_URL}/gratitude/${noteId}`, {
+          method: 'DELETE',
+          headers: { 'x-auth-token': token }
+        });
+
+        if (!response.ok) throw new Error('Failed to delete gratitude note.');
+
+        showNotification('Gratitude note deleted! 🗑️', 'success');
+        await loadGratitudeNotes();
+
+      } catch (error) {
+        showNotification(error.message, 'error');
+      }
+    }
+
+    // Make functions globally accessible
+    window.saveGratitude = saveGratitude;
+    window.deleteGratitude = deleteGratitude;
+  </script>
+</body>
+</html>
