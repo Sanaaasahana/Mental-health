@@ -16,7 +16,7 @@ router.get('/me', auth, async (req, res) => {
     res.json(result.rows[0]);
   } catch (err) {
     console.error(err.message);
-    res.status(500).send('Server Error');
+    res.status(500).json({ msg: 'Server error' });
   }
 });
 
@@ -43,7 +43,7 @@ router.post('/register', async (req, res) => {
     res.status(201).json({ token });
   } catch (err) {
     console.error(err.message);
-    res.status(500).send('Server error');
+    res.status(500).json({ msg: 'Server error' });
   }
 });
 
@@ -54,19 +54,19 @@ router.post('/login', async (req, res) => {
   try {
     const result = await pool.query('SELECT id, password FROM users WHERE email = $1', [email]);
     if (result.rows.length === 0) {
-      return res.status(400).json({ msg: 'Invalid credentials' });
+      return res.status(404).json({ msg: 'User not found' });
     }
     const user = result.rows[0];
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(400).json({ msg: 'Invalid credentials' });
+      return res.status(401).json({ msg: 'Invalid password' });
     }
     const payload = { user: { id: user.id } };
     const token = jwt.sign(payload, process.env.JWT_SECRET || 'your-secret-key', { expiresIn: '5h' });
     res.json({ token });
   } catch (err) {
     console.error(err.message);
-    res.status(500).send('Server error');
+    res.status(500).json({ msg: 'Server error' });
   }
 });
 
@@ -82,7 +82,7 @@ router.put('/profile', auth, async (req, res) => {
     res.json(result.rows[0]);
   } catch (err) {
     console.error(err.message);
-    res.status(500).send('Server error');
+    res.status(500).json({ msg: 'Server error' });
   }
 });
 
@@ -94,7 +94,7 @@ router.get('/all', auth, async (req, res) => {
     res.json(result.rows);
   } catch (err) {
     console.error(err.message);
-    res.status(500).send('Server error');
+    res.status(500).json({ msg: 'Server error' });
   }
 });
 
@@ -106,7 +106,7 @@ router.get('/count', async (req, res) => {
     res.json({ count: parseInt(result.rows[0].count, 10) });
   } catch (err) {
     console.error(err.message);
-    res.status(500).send('Server error');
+    res.status(500).json({ msg: 'Server error' });
   }
 });
 
@@ -121,7 +121,7 @@ router.get('/:id', auth, async (req, res) => {
     res.json(result.rows[0]);
   } catch (err) {
     console.error(err.message);
-    res.status(500).send('Server error');
+    res.status(500).json({ msg: 'Server error' });
   }
 });
 
