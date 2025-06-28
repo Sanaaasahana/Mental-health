@@ -186,7 +186,10 @@
                 }
 
                 journalList.innerHTML = entries
-                    .map(entry => `
+                    .map(entry => {
+                        // Map is_public to isPublic for frontend compatibility
+                        const isPublic = entry.is_public || entry.isPublic || false;
+                        return `
                         <div class="journal-entry">
                             <div class="entry-header">
                                 <div class="entry-meta">
@@ -201,20 +204,24 @@
                                 </div>
                                 <div class="entry-tags">
                                     ${entry.category ? `<span class="entry-category">${entry.category}</span>` : ''}
-                                    <span class="entry-visibility ${entry.isPublic ? 'public' : 'private'}">
-                                        <i class="fas fa-${entry.isPublic ? 'globe' : 'lock'}"></i>
-                                        ${entry.isPublic ? 'Public' : 'Private'}
+                                    <span class="entry-visibility ${isPublic ? 'public' : 'private'}">
+                                        <i class="fas fa-${isPublic ? 'globe' : 'lock'}"></i>
+                                        ${isPublic ? 'Public' : 'Private'}
                                     </span>
                                 </div>
                             </div>
                             <div class="entry-content">${entry.content}</div>
                             <div class="entry-actions">
-                                <button onclick="deleteEntry('${entry._id}')" class="btn-delete">
+                                <button onclick="togglePublic('${entry.id}', ${isPublic})" class="btn-secondary">
+                                    <i class="fas fa-${isPublic ? 'lock' : 'globe'}"></i> 
+                                    Make ${isPublic ? 'Private' : 'Public'}
+                                </button>
+                                <button onclick="deleteEntry('${entry.id}')" class="btn-delete">
                                     <i class="fas fa-trash"></i> Delete
                                 </button>
                             </div>
                         </div>
-                    `).join('');
+                    `}).join('');
             }
 
             function populateFilterCategories(entries) {
@@ -294,6 +301,36 @@
                     }
                     
                     showNotification('Journal entry deleted successfully! 🗑️', 'success');
+                    await loadJournalEntries(); // Refresh the list
+                } catch (error) {
+                    showNotification(error.message, 'error');
+                }
+            }
+
+            // -- TOGGLE PUBLIC/PRIVATE STATUS --
+            window.togglePublic = async function(entryId, currentStatus) {
+                const newStatus = !currentStatus;
+                const action = newStatus ? 'public' : 'private';
+                
+                if (!confirm(`Are you sure you want to make this entry ${action}?`)) {
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`${API_URL}/journal/${entryId}`, {
+                        method: 'PUT',
+                        headers: { 
+                            'Content-Type': 'application/json', 
+                            'x-auth-token': token 
+                        },
+                        body: JSON.stringify({ isPublic: newStatus })
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error('Failed to update entry.');
+                    }
+                    
+                    showNotification(`Journal entry is now ${action}! ${newStatus ? '🌍' : '🔒'}`, 'success');
                     await loadJournalEntries(); // Refresh the list
                 } catch (error) {
                     showNotification(error.message, 'error');
