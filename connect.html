@@ -88,6 +88,7 @@
                         </select>
                     </div>
                 </div>
+                <div id="incoming-requests" class="incoming-requests"></div>
                 <div class="users-grid" id="users-list"></div>
             </div>
         </div>
@@ -104,6 +105,7 @@
             // Load users and stats
             await loadUsers();
             await updateStats();
+            await loadIncomingRequests();
 
             async function loadUsers() {
                 try {
@@ -345,6 +347,64 @@
                     document.getElementById('total-users').textContent = '0';
                     document.getElementById('friend-requests').textContent = '0';
                     document.getElementById('connections').textContent = '0';
+                }
+            }
+
+            async function loadIncomingRequests() {
+                try {
+                    const response = await fetch(`${API_URL}/friend-requests`, {
+                        headers: { 'x-auth-token': token }
+                    });
+                    if (!response.ok) throw new Error('Failed to load friend requests.');
+                    const requests = await response.json();
+                    const incoming = requests.filter(r => r.to_user_id === currentUser.id && r.status !== 'accepted' && r.status !== 'rejected');
+                    const requestsDiv = document.getElementById('incoming-requests');
+                    if (!requestsDiv) return;
+                    if (incoming.length === 0) {
+                        requestsDiv.innerHTML = '<p>No new friend requests.</p>';
+                        return;
+                    }
+                    requestsDiv.innerHTML = incoming.map(r => `
+                        <div class="request-item">
+                            <span>Friend request from <strong>${r.from_user_name || 'Someone'}</strong></span>
+                            <button onclick="acceptRequest('${r.id}')" class="btn-primary btn-xs">Accept</button>
+                            <button onclick="rejectRequest('${r.id}')" class="btn-secondary btn-xs">Reject</button>
+                        </div>
+                    `).join('');
+                } catch (error) {
+                    // Optionally show error
+                }
+            }
+
+            window.acceptRequest = async function(requestId) {
+                try {
+                    const response = await fetch(`${API_URL}/friend-requests/${requestId}/accept`, {
+                        method: 'POST',
+                        headers: { 'x-auth-token': token }
+                    });
+                    if (!response.ok) throw new Error('Failed to accept request.');
+                    showNotification('Friend request accepted!', 'success');
+                    await loadIncomingRequests();
+                    await loadUsers();
+                    await updateStats();
+                } catch (error) {
+                    showNotification(error.message, 'error');
+                }
+            }
+
+            window.rejectRequest = async function(requestId) {
+                try {
+                    const response = await fetch(`${API_URL}/friend-requests/${requestId}/reject`, {
+                        method: 'POST',
+                        headers: { 'x-auth-token': token }
+                    });
+                    if (!response.ok) throw new Error('Failed to reject request.');
+                    showNotification('Friend request rejected.', 'info');
+                    await loadIncomingRequests();
+                    await loadUsers();
+                    await updateStats();
+                } catch (error) {
+                    showNotification(error.message, 'error');
                 }
             }
 
